@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: gifsaz-render
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: SERVICE_SECRET
+        sync: false
+      - key: WATERMARK
+        value: "@gif_sazbot"
+      - key: MAX_INPUT_MB
+        value: "20"
+      - key: MAX_CONCURRENCY
+        value: "1"
