@@ -1,0 +1,6 @@
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+httpx>=0.27,<1.0
+arabic-reshaper>=3.0,<4.0
+python-bidi>=0.4.2,<1.0
+pillow>=10.0
