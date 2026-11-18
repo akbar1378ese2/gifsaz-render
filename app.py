@@ -164,7 +164,28 @@ async def edit_status(chat_id, message_id, text: str) -> None:
 
 
 def upload_sync(path: Path, data: dict) -> dict:
-    """آپلود فایل به تلگرام در یک ترد جدا (تا event loop بلاک نشود)."""
+    """آپلود فایل به تلگرام در یک ترد جدا (تا event loop بلاک نشود).
+
+    اول sendAnimation (نمایش به شکل GIF حلقه‌ای، بدون دکمه پخش)؛
+    اگر تلگرام نپذیرفت، به sendVideo برمی‌گردیم.
+    """
+    payload = {k: v for k, v in data.items() if k != "supports_streaming"}
+    try:
+        with open(path, "rb") as fh:
+            files = {"animation": (path.name, fh, "video/mp4")}
+            res = httpx.post(
+                f"{API}/sendAnimation",
+                data=payload,
+                files=files,
+                timeout=httpx.Timeout(900.0, connect=30.0),
+            )
+        result = res.json()
+        if result.get("ok"):
+            return result
+        log.warning("sendAnimation failed: %s", result.get("description"))
+    except Exception as exc:
+        log.warning("sendAnimation failed: %s", exc)
+
     with open(path, "rb") as fh:
         files = {"video": (path.name, fh, "video/mp4")}
         res = httpx.post(
@@ -522,20 +543,14 @@ def render_video(job: dict, source: Path, workdir: Path, W: int, H: int, is_imag
     input_args += ["-i", source.name]
 
     if action == "speed":
+        # بدون صدا تا تلگرام خروجی را مثل GIF نشان دهد
         speed_vf = f"setpts=0.5*PTS,{EVEN_SCALE}"
         args = input_args + [
-            "-map", "0:v:0", "-map", "0:a?",
-            "-filter:v", speed_vf, "-filter:a", "atempo=2.0",
+            "-an", "-filter:v", speed_vf,
+            "-vcodec", "libx264", "-preset", "veryfast", "-crf", "23",
             "-pix_fmt", "yuv420p", "-movflags", "+faststart", output.name,
         ]
-        try:
-            run_ffmpeg(args, workdir)
-        except RuntimeError:
-            args = input_args + [
-                "-an", "-filter:v", speed_vf,
-                "-pix_fmt", "yuv420p", "-movflags", "+faststart", output.name,
-            ]
-            run_ffmpeg(args, workdir)
+        run_ffmpeg(args, workdir)
     elif action == "bw":
         args = input_args + [
             "-an", "-filter:v", f"hue=s=0,{EVEN_SCALE},format=yuv420p",
